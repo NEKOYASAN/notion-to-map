@@ -9,7 +9,9 @@ export default class MyDocument extends Document {
   render() {
     return (
       <Html lang="ja">
-        <Head />
+        <Head>
+          <script src="https://cdn.geolonia.com/community-geocoder.js" />
+        </Head>
         <body>
           <Main />
           <NextScript />

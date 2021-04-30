@@ -52,6 +52,10 @@ const Home: NextPage = () => {
     lat: 'lat',
     address: 'address',
   })
+  const [mapSetting, setMapSetting] = useState({
+    addressPrimary: false,
+    popupPage: false,
+  })
   const [stepOneFormState, setStepOneFormState] = useState({
     tableURL: '',
   })
@@ -71,6 +75,27 @@ const Home: NextPage = () => {
   const [fetcherKeys, setFetcherKeys] = useState<string[]>([])
   const [settingStep, setSettingStep] = useState(1)
   const [settingError, setSettingError] = useState('')
+  const [geoState, setGeoState] = useState<
+    {
+      id: string
+      coordinates: Position
+      name: string
+    }[]
+  >([])
+  const geocodingFunc = (address: string) =>
+    new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      getLatLng(
+        address,
+        (latlng: any) => {
+          resolve([Number(latlng.lng), Number(latlng.lat)])
+        },
+        () => {
+          reject()
+        }
+      )
+    })
   const onClickNext = async (PageURL: string) => {
     setSettingError('')
     try {
@@ -80,16 +105,15 @@ const Home: NextPage = () => {
       const test2 = test.replace(regex2, '')
       const fetchData = await fetch('https://notion-api.splitbee.io/v1/table/' + test2)
       const json: Array<any> = await fetchData.json()
-      if (json[0]) {
-        const keys = Object.keys(json[0])
-        if (keys.length) {
-          setFetcherKeys(keys)
-          setSettingStep(2)
-          setLoading(false)
-        } else {
-          setSettingError('データが存在しませんでした。NotionのURLが正しいことを確認してください。')
-          setLoading(false)
-        }
+      let keys: string[] = []
+      json.forEach((obje) => {
+        keys = keys.concat(Object.keys(obje))
+      })
+      keys = Array.from(new Set(keys))
+      if (keys.length) {
+        setFetcherKeys(keys)
+        setSettingStep(2)
+        setLoading(false)
       } else {
         setSettingError('データが存在しませんでした。NotionのURLが正しいことを確認してください。')
         setLoading(false)
@@ -118,6 +142,13 @@ const Home: NextPage = () => {
           lng: stepTwoFormState.lng,
           lat: stepTwoFormState.lat,
           address: stepTwoFormState.address,
+        }
+      })
+      setMapSetting((prevState) => {
+        return {
+          ...prevState,
+          addressPrimary: stepTwoFormState.addressPrimary,
+          popupPage: stepTwoFormState.popupPage,
         }
       })
       onClose()
@@ -150,6 +181,53 @@ const Home: NextPage = () => {
       })
     }
   }, error)
+
+  useEffect(() => {
+    if (data) {
+      const f = async () => {
+        const datas = data.map(async (d: any) => {
+          if (mapSetting.addressPrimary && columnName.address) {
+            if (d[columnName.address]) {
+              // Geolonia Community Geocoding API
+              const pos = await geocodingFunc(d[columnName.address])
+              return {
+                id: d.id,
+                coordinates: pos,
+                name: d[columnName.name],
+              }
+            } else {
+              return {
+                id: d.id,
+                coordinates: [d[columnName.lng], d[columnName.lat]],
+                name: d[columnName.name],
+              }
+            }
+          } else {
+            if (d[columnName.lng] && d[columnName.lat]) {
+              return {
+                id: d.id,
+                coordinates: [d[columnName.lng], d[columnName.lat]],
+                name: d[columnName.name],
+              }
+            } else if (d[columnName.address]) {
+              // Geolonia Community Geocoding API
+              const pos = await geocodingFunc(d[columnName.address])
+              return {
+                id: d.id,
+                coordinates: pos,
+                name: d[columnName.name],
+              }
+            }
+          }
+        })
+        const test = await Promise.all(datas)
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        setGeoState(test)
+      }
+      f()
+    }
+  }, data)
   return (
     <Box h={'100vh'} w={'100vw'} maxH={'100vh'} minH={'100vh'} maxW={'100vw'} minW={'100vw'}>
       <Flex
@@ -178,7 +256,7 @@ const Home: NextPage = () => {
           layers={[
             new ScatterplotLayer({
               id: 'scatterplot-layer',
-              data,
+              data: geoState,
               pickable: true,
               opacity: 1,
               stroked: true,
@@ -188,7 +266,7 @@ const Home: NextPage = () => {
               radiusMaxPixels: 100,
               lineWidthMinPixels: 1,
               getPosition: (d: any): Position => {
-                return [d[columnName.lng], d[columnName.lat]]
+                return d.coordinates
               },
             }),
           ]}
