@@ -1,6 +1,7 @@
 import { AppProps } from 'next/app'
 import '~/styles/globals.scss'
 import Head from 'next/head'
+import { ChakraProvider } from '@chakra-ui/react'
 
 const MyApp = ({ Component, pageProps }: AppProps) => {
   return (
@@ -15,7 +16,9 @@ const MyApp = ({ Component, pageProps }: AppProps) => {
           rel="stylesheet"
         />
       </Head>
-      <Component {...pageProps} />
+      <ChakraProvider>
+        <Component {...pageProps} />
+      </ChakraProvider>
     </>
   )
 }
