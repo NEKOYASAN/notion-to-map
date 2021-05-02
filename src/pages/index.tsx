@@ -26,8 +26,17 @@ import {
   AlertTitle,
   CloseButton,
   useToast,
+  InputGroup,
+  InputRightElement,
+  Tooltip,
+  Textarea,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
 } from '@chakra-ui/react'
-import { Config } from '@icon-park/react'
+import { Config, Copy, CopyLink, Facebook, Twitter } from '@icon-park/react'
 import { DeckGL } from '@deck.gl/react'
 import { FlyToInterpolator, Popup, StaticMap } from 'react-map-gl'
 import { useEffect, useState } from 'react'
@@ -86,6 +95,7 @@ const Home: NextPage = () => {
   const [fetcherKeys, setFetcherKeys] = useState<string[]>([])
   const [settingStep, setSettingStep] = useState(1)
   const [settingError, setSettingError] = useState('')
+  const [shareModal, setShareModal] = useState(false)
   const [geoState, setGeoState] = useState<
     {
       id: string
@@ -307,25 +317,45 @@ const Home: NextPage = () => {
   }, [router])
   return (
     <Box h={'100vh'} w={'100vw'} maxH={'100vh'} minH={'100vh'} maxW={'100vw'} minW={'100vw'}>
-      <Flex
-        as={'header'}
-        height={'45px'}
-        verticalAlign={'center'}
-        alignItems={'center'}
-        px={'20px'}
+      {!router.query.embed ? (
+        <Flex
+          as={'header'}
+          height={'45px'}
+          verticalAlign={'center'}
+          alignItems={'center'}
+          px={'20px'}
+        >
+          <Heading size={'18px'}>Notion to Map</Heading>
+          <Spacer />
+          {geoState.length ? (
+            <Button
+              mr={6}
+              colorScheme={'blue'}
+              onClick={() => {
+                onOpen()
+                setShareModal(true)
+              }}
+            >
+              地図をシェアする
+            </Button>
+          ) : undefined}
+          <Tooltip label="設定">
+            <IconButton
+              variant={'transparent'}
+              aria-label={'setting'}
+              icon={<Icon as={Config} />}
+              onClick={() => {
+                onOpen()
+              }}
+            />
+          </Tooltip>
+        </Flex>
+      ) : undefined}
+      <Box
+        position={'relative'}
+        overflow={'hidden'}
+        h={!router.query.embed ? 'calc(100vh - 45px)' : '100vh'}
       >
-        <Heading size={'18px'}>Notion to Map</Heading>
-        <Spacer />
-        <IconButton
-          variant={'transparent'}
-          aria-label={'setting'}
-          icon={<Icon as={Config} />}
-          onClick={() => {
-            onOpen()
-          }}
-        />
-      </Flex>
-      <Box position={'relative'} overflow={'hidden'} h={'calc(100vh - 45px)'}>
         <DeckGL
           width={'100%'}
           height={'100%'}
@@ -345,7 +375,7 @@ const Home: NextPage = () => {
               getPosition: (d: any): Position => {
                 return d.coordinates
               },
-              onClick: (d) => {
+              onClick: (d: any) => {
                 if (mapSetting.popupPage) {
                   fetch('https://notion-api.splitbee.io/v1/page/' + d.object.id)
                     .then((res) => {
@@ -398,12 +428,143 @@ const Home: NextPage = () => {
         onClose={() => {
           onClose()
           setBlockMap(undefined)
+          setShareModal(false)
         }}
         isOpen={isOpen}
       >
         <ModalOverlay />
         <ModalContent>
           {(() => {
+            if (shareModal) {
+              return (
+                <>
+                  <ModalHeader>Mapをシェアする</ModalHeader>
+                  <ModalCloseButton />
+                  <ModalBody>
+                    <Box>
+                      <FormLabel>Share URL</FormLabel>
+                      <InputGroup size="md">
+                        <Input
+                          type={'text'}
+                          readOnly
+                          value={document.location.origin + router.asPath}
+                        />
+                        <InputRightElement>
+                          <Tooltip label="URLをコピーする">
+                            <IconButton
+                              aria-label={'URLをコピーする'}
+                              icon={<Icon as={CopyLink} />}
+                              roundedLeft={0}
+                              onClick={() => {
+                                if (navigator.clipboard) {
+                                  navigator.clipboard
+                                    .writeText(document.location.origin + router.asPath)
+                                    .then(() => {
+                                      toast({
+                                        title: 'URLをコピーしました',
+                                        status: 'info',
+                                        duration: 9000,
+                                        isClosable: true,
+                                        position: 'top',
+                                      })
+                                    })
+                                }
+                              }}
+                            />
+                          </Tooltip>
+                        </InputRightElement>
+                      </InputGroup>
+                      <Flex m={3}>
+                        <Button
+                          aria-label={'Twitterでシェア'}
+                          colorScheme={'twitter'}
+                          leftIcon={<Icon as={Twitter} />}
+                          onClick={() => {
+                            window.open(
+                              'https://twitter.com/intent/tweet?text=Notion to Map&url=' +
+                                encodeURIComponent(document.location.origin + router.asPath)
+                            )
+                          }}
+                        >
+                          Twitterでシェア
+                        </Button>
+                        <Spacer />
+                        <Button
+                          aria-label={'Facebookでシェア'}
+                          leftIcon={<Icon as={Facebook} />}
+                          colorScheme={'facebook'}
+                          onClick={() => {
+                            window.open(
+                              'https://www.facebook.com/sharer.php?u=' +
+                                encodeURIComponent(document.location.origin + router.asPath)
+                            )
+                          }}
+                        >
+                          Facebookでシェア
+                        </Button>
+                      </Flex>
+                      <Accordion allowToggle>
+                        <AccordionItem>
+                          <p>
+                            <AccordionButton>
+                              <Box flex="1" textAlign="left">
+                                iframe Code
+                              </Box>
+                              <AccordionIcon />
+                            </AccordionButton>
+                          </p>
+                          <AccordionPanel>
+                            <InputGroup size="md">
+                              <Textarea
+                                readOnly
+                                pr={12}
+                                value={
+                                  '<iframe width="560" height="315" src="' +
+                                  document.location.origin +
+                                  router.asPath +
+                                  '&embed=true' +
+                                  '" frameborder="0"></iframe>'
+                                }
+                              />
+                              <InputRightElement>
+                                <Tooltip label="iframe コードをコピー">
+                                  <IconButton
+                                    aria-label={'iframe コードをコピー'}
+                                    icon={<Icon as={Copy} />}
+                                    roundedLeft={0}
+                                    onClick={() => {
+                                      if (navigator.clipboard) {
+                                        navigator.clipboard
+                                          .writeText(
+                                            '<iframe width="560" height="315" src="' +
+                                              document.location.origin +
+                                              router.asPath +
+                                              '&embed=true' +
+                                              '" frameborder="0"></iframe>'
+                                          )
+                                          .then(() => {
+                                            toast({
+                                              title: 'iframeコードをコピーしました',
+                                              status: 'info',
+                                              duration: 9000,
+                                              isClosable: true,
+                                              position: 'top',
+                                            })
+                                          })
+                                      }
+                                    }}
+                                  />
+                                </Tooltip>
+                              </InputRightElement>
+                            </InputGroup>
+                          </AccordionPanel>
+                        </AccordionItem>
+                      </Accordion>
+                    </Box>
+                  </ModalBody>
+                </>
+              )
+            }
             if (blockMap && mapSetting.popupPage) {
               return (
                 <>
