@@ -10,7 +10,7 @@ export default class MyDocument extends Document {
     return (
       <Html lang="ja">
         <Head>
-          <script async src="https://cdn.geolonia.com/community-geocoder.js" />
+          <script src="https://cdn.geolonia.com/community-geocoder.js" />
         </Head>
         <body>
           <Main />
