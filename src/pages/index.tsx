@@ -20,7 +20,6 @@ import {
   Select,
   Spacer,
   Stack,
-  Text,
   useDisclosure,
   Alert,
   AlertIcon,
@@ -30,13 +29,23 @@ import {
 } from '@chakra-ui/react'
 import { Config } from '@icon-park/react'
 import { DeckGL } from '@deck.gl/react'
-import { StaticMap } from 'react-map-gl'
+import { FlyToInterpolator, Popup, StaticMap } from 'react-map-gl'
 import { useEffect, useState } from 'react'
 import { ScatterplotLayer } from '@deck.gl/layers'
 import useSWR from 'swr'
+import React from 'react'
 import { Position } from '@deck.gl/core/utils/positions'
+import { BlockMapType } from 'react-notion/dist'
+import Notion from '~/components/Notion'
+import { useRouter } from 'next/router'
+
+interface infoType {
+  coordinate: Position
+  name: string
+}
 
 const Home: NextPage = () => {
+  const router = useRouter()
   const toast = useToast()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [viewport, setViewport] = useState({
@@ -54,8 +63,10 @@ const Home: NextPage = () => {
   })
   const [mapSetting, setMapSetting] = useState({
     addressPrimary: false,
-    popupPage: false,
+    popupPage: true,
   })
+
+  const [blockMap, setBlockMap] = useState<undefined | BlockMapType>(undefined)
   const [stepOneFormState, setStepOneFormState] = useState({
     tableURL: '',
   })
@@ -65,11 +76,11 @@ const Home: NextPage = () => {
     lat: '',
     address: '',
     addressPrimary: false,
-    popupPage: false,
+    popupPage: true,
   })
-  const [notionPageID, setNotionPageID] = useState('')
+  const [notionDBID, setNotionDBID] = useState('')
   const { data, error } = useSWR(
-    notionPageID ? 'https://notion-api.splitbee.io/v1/table/' + notionPageID : null
+    notionDBID ? 'https://notion-api.splitbee.io/v1/table/' + notionDBID : null
   )
   const [loading, setLoading] = useState<boolean>(false)
   const [fetcherKeys, setFetcherKeys] = useState<string[]>([])
@@ -82,6 +93,7 @@ const Home: NextPage = () => {
       name: string
     }[]
   >([])
+  const [infoState, setInfoState] = useState<infoType | undefined>(undefined)
   const geocodingFunc = (address: string) =>
     new Promise((resolve, reject) => {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -134,7 +146,7 @@ const Home: NextPage = () => {
       const test = stepOneFormState.tableURL.replace(regex, '')
       const regex2 = /\?.+$/i
       const test2 = test.replace(regex2, '')
-      setNotionPageID(test2)
+      setNotionDBID(test2)
       setColumnName((prevState) => {
         return {
           ...prevState,
@@ -151,6 +163,23 @@ const Home: NextPage = () => {
           popupPage: stepTwoFormState.popupPage,
         }
       })
+
+      router.push(
+        {
+          pathname: '/',
+          query: {
+            notionDBID: test2,
+            name: stepTwoFormState.name,
+            lng: stepTwoFormState.lng,
+            lat: stepTwoFormState.lat,
+            address: stepTwoFormState.address,
+            addressPrimary: stepTwoFormState.addressPrimary,
+            popupPage: stepTwoFormState.popupPage,
+          },
+        },
+        undefined,
+        { shallow: true }
+      )
       onClose()
       setStepOneFormState({
         tableURL: '',
@@ -161,13 +190,12 @@ const Home: NextPage = () => {
         lat: '',
         address: '',
         addressPrimary: false,
-        popupPage: false,
+        popupPage: true,
       })
       setFetcherKeys([])
       setSettingStep(1)
       setSettingError('')
     }
-    setLoading(false)
   }
 
   useEffect(() => {
@@ -221,6 +249,24 @@ const Home: NextPage = () => {
           }
         })
         const test = await Promise.all(datas)
+        if (loading) {
+          if (test.length) {
+            setViewport((prevState) => {
+              return {
+                ...prevState,
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                longitude: test[0].coordinates[0],
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // @ts-ignore
+                latitude: test[0].coordinates[1],
+                transitionDuration: 1500,
+                transitionInterpolator: new FlyToInterpolator(),
+              }
+            })
+          }
+          setLoading(false)
+        }
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         setGeoState(test)
@@ -228,6 +274,37 @@ const Home: NextPage = () => {
       f()
     }
   }, data)
+  useEffect(() => {
+    const { query } = router
+    if (
+      query &&
+      query.notionDBID &&
+      query.name &&
+      query.lng &&
+      query.lat &&
+      query.address &&
+      query.addressPrimary &&
+      query.popupPage
+    ) {
+      setNotionDBID(String(query.notionDBID))
+      setColumnName((prevState) => {
+        return {
+          ...prevState,
+          name: String(query.name),
+          lng: String(query.lng),
+          lat: String(query.lat),
+          address: String(query.address),
+        }
+      })
+      setMapSetting((prevState) => {
+        return {
+          ...prevState,
+          addressPrimary: Boolean(query.addressPrimary),
+          popupPage: Boolean(query.popupPage),
+        }
+      })
+    }
+  }, [router])
   return (
     <Box h={'100vh'} w={'100vw'} maxH={'100vh'} minH={'100vh'} maxW={'100vw'} minW={'100vw'}>
       <Flex
@@ -268,6 +345,25 @@ const Home: NextPage = () => {
               getPosition: (d: any): Position => {
                 return d.coordinates
               },
+              onClick: (d) => {
+                if (mapSetting.popupPage) {
+                  fetch('https://notion-api.splitbee.io/v1/page/' + d.object.id)
+                    .then((res) => {
+                      return res.json()
+                    })
+                    .then((json) => {
+                      setBlockMap(json)
+                      onOpen()
+                    })
+                } else {
+                  if (d.coordinate) {
+                    setInfoState({
+                      coordinate: d.coordinate,
+                      name: d.object.name,
+                    })
+                  }
+                }
+              },
             }),
           ]}
           viewState={viewport}
@@ -281,25 +377,44 @@ const Home: NextPage = () => {
               process.env.NEXT_PUBLIC_MAPTILER_ACCESS_TOKEN
             }
             mapboxApiAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESSS_TOKEN}
-          />
-          <Box position={'absolute'} top={0} right={0} bgColor={'white'}>
-            {data
-              ? data.map((d: any) => {
-                  return (
-                    <Text key={d[columnName.name]}>
-                      {d[columnName.name]} , {d[columnName.lng]} , {d[columnName.lat]}
-                    </Text>
-                  )
-                })
-              : undefined}
-          </Box>
+          >
+            {infoState ? (
+              <Popup
+                longitude={infoState.coordinate[0]}
+                latitude={infoState.coordinate[1]}
+                closeButton={true}
+                closeOnClick={true}
+              >
+                <div>
+                  <p>{infoState.name}</p>
+                </div>
+              </Popup>
+            ) : undefined}
+          </StaticMap>
         </DeckGL>
       </Box>
 
-      <Modal onClose={onClose} isOpen={isOpen}>
+      <Modal
+        onClose={() => {
+          onClose()
+          setBlockMap(undefined)
+        }}
+        isOpen={isOpen}
+      >
         <ModalOverlay />
         <ModalContent>
           {(() => {
+            if (blockMap && mapSetting.popupPage) {
+              return (
+                <>
+                  <ModalHeader>Notion Page</ModalHeader>
+                  <ModalCloseButton />
+                  <ModalBody>
+                    <Notion blockMap={blockMap} />
+                  </ModalBody>
+                </>
+              )
+            }
             if (settingStep === 1) {
               return (
                 <>
