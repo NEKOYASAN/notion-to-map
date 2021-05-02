@@ -317,45 +317,39 @@ const Home: NextPage = () => {
   }, [router])
   return (
     <Box h={'100vh'} w={'100vw'} maxH={'100vh'} minH={'100vh'} maxW={'100vw'} minW={'100vw'}>
-      {!router.query.embed ? (
-        <Flex
-          as={'header'}
-          height={'45px'}
-          verticalAlign={'center'}
-          alignItems={'center'}
-          px={'20px'}
-        >
-          <Heading size={'18px'}>Notion to Map</Heading>
-          <Spacer />
-          {geoState.length ? (
-            <Button
-              mr={6}
-              colorScheme={'blue'}
-              onClick={() => {
-                onOpen()
-                setShareModal(true)
-              }}
-            >
-              地図をシェアする
-            </Button>
-          ) : undefined}
-          <Tooltip label="設定">
-            <IconButton
-              variant={'transparent'}
-              aria-label={'setting'}
-              icon={<Icon as={Config} />}
-              onClick={() => {
-                onOpen()
-              }}
-            />
-          </Tooltip>
-        </Flex>
-      ) : undefined}
-      <Box
-        position={'relative'}
-        overflow={'hidden'}
-        h={!router.query.embed ? 'calc(100vh - 45px)' : '100vh'}
+      <Flex
+        as={'header'}
+        height={'45px'}
+        verticalAlign={'center'}
+        alignItems={'center'}
+        px={'20px'}
       >
+        <Heading size={'18px'}>Notion to Map</Heading>
+        <Spacer />
+        {geoState.length ? (
+          <Button
+            mr={6}
+            colorScheme={'blue'}
+            onClick={() => {
+              onOpen()
+              setShareModal(true)
+            }}
+          >
+            地図をシェアする
+          </Button>
+        ) : undefined}
+        <Tooltip label="設定">
+          <IconButton
+            variant={'transparent'}
+            aria-label={'setting'}
+            icon={<Icon as={Config} />}
+            onClick={() => {
+              onOpen()
+            }}
+          />
+        </Tooltip>
+      </Flex>
+      <Box position={'relative'} overflow={'hidden'} h={'calc(100vh - 45px)'}>
         <DeckGL
           width={'100%'}
           height={'100%'}
@@ -508,6 +502,83 @@ const Home: NextPage = () => {
                           <p>
                             <AccordionButton>
                               <Box flex="1" textAlign="left">
+                                Notion Embed URL
+                              </Box>
+                              <AccordionIcon />
+                            </AccordionButton>
+                          </p>
+                          <AccordionPanel>
+                            <InputGroup size="md">
+                              <Input
+                                readOnly
+                                pr={12}
+                                value={
+                                  document.location.origin +
+                                  '/embed/' +
+                                  notionDBID +
+                                  '/' +
+                                  columnName.name +
+                                  '/' +
+                                  columnName.lng +
+                                  '/' +
+                                  columnName.lat +
+                                  '/' +
+                                  columnName.address +
+                                  '/' +
+                                  mapSetting.addressPrimary +
+                                  '/' +
+                                  mapSetting.popupPage
+                                }
+                              />
+                              <InputRightElement>
+                                <Tooltip label="Notion Embed URLをコピー">
+                                  <IconButton
+                                    aria-label={'Notion Embed URLをコピー'}
+                                    icon={<Icon as={Copy} />}
+                                    roundedLeft={0}
+                                    onClick={() => {
+                                      if (navigator.clipboard) {
+                                        navigator.clipboard
+                                          .writeText(
+                                            document.location.origin +
+                                              '/embed/' +
+                                              notionDBID +
+                                              '/' +
+                                              columnName.name +
+                                              '/' +
+                                              columnName.lng +
+                                              '/' +
+                                              columnName.lat +
+                                              '/' +
+                                              columnName.address +
+                                              '/' +
+                                              mapSetting.addressPrimary +
+                                              '/' +
+                                              mapSetting.popupPage
+                                          )
+                                          .then(() => {
+                                            toast({
+                                              title: 'Notion Embed URLをコピーしました',
+                                              status: 'info',
+                                              duration: 9000,
+                                              isClosable: true,
+                                              position: 'top',
+                                            })
+                                          })
+                                      }
+                                    }}
+                                  />
+                                </Tooltip>
+                              </InputRightElement>
+                            </InputGroup>
+                          </AccordionPanel>
+                        </AccordionItem>
+                      </Accordion>
+                      <Accordion allowToggle>
+                        <AccordionItem>
+                          <p>
+                            <AccordionButton>
+                              <Box flex="1" textAlign="left">
                                 iframe Code
                               </Box>
                               <AccordionIcon />
@@ -521,8 +592,20 @@ const Home: NextPage = () => {
                                 value={
                                   '<iframe width="560" height="315" src="' +
                                   document.location.origin +
-                                  router.asPath +
-                                  '&embed=true' +
+                                  '/embed/' +
+                                  notionDBID +
+                                  '/' +
+                                  columnName.name +
+                                  '/' +
+                                  columnName.lng +
+                                  '/' +
+                                  columnName.lat +
+                                  '/' +
+                                  columnName.address +
+                                  '/' +
+                                  mapSetting.addressPrimary +
+                                  '/' +
+                                  mapSetting.popupPage +
                                   '" frameborder="0"></iframe>'
                                 }
                               />
@@ -538,8 +621,20 @@ const Home: NextPage = () => {
                                           .writeText(
                                             '<iframe width="560" height="315" src="' +
                                               document.location.origin +
-                                              router.asPath +
-                                              '&embed=true' +
+                                              '/embed/' +
+                                              notionDBID +
+                                              '/' +
+                                              columnName.name +
+                                              '/' +
+                                              columnName.lng +
+                                              '/' +
+                                              columnName.lat +
+                                              '/' +
+                                              columnName.address +
+                                              '/' +
+                                              mapSetting.addressPrimary +
+                                              '/' +
+                                              mapSetting.popupPage +
                                               '" frameborder="0"></iframe>'
                                           )
                                           .then(() => {
